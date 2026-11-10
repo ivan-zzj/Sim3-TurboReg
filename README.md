@@ -99,6 +99,13 @@ See [`registration/`](registration/README.md) for the TEASER++ unknown-scale Sim
 
 See [`streaming/`](streaming/README.md). This part contains our integration code that replaces the IRLS chunk-alignment backend of [VGGT-Long](https://github.com/DengKaiCQ/VGGT-Long), Pi-Long, and [DA3-Streaming](https://github.com/ByteDance-Seed/Depth-Anything-3) (`da3_streaming`) with Sim(3)-TurboReg, plus the configs and scripts for the KITTI Odometry / TUM RGB-D evaluation. The upstream pipelines must be cloned separately and are **not** redistributed here (they carry their own licenses).
 
+## Authors
+
+Zijun Zhou, Shaocheng Yan, Zhenjun Zhao, Yutong Hu, Ke Yang, Yingdong Gu, Pengcheng Shi, Jiayuan Li
+
+- School of Remote Sensing and Information Engineering, Wuhan University (all authors except Zhenjun Zhao)
+- Department of Computer and Systems Engineering, University of Zaragoza (Zhenjun Zhao)
+
 ## License
 
 This repository is released under the [MIT License](LICENSE). Note that the upstream streaming pipelines (VGGT-Long, Depth Anything 3, Pi3) are governed by their own licenses — please check them before use.
@@ -110,7 +117,7 @@ If you find this work useful, please cite:
 ```bibtex
 @article{sim3turboreg2026,
   title   = {Sim(3)-TurboReg: Robust and Efficient Scale-Aware Registration via Tri-Scale Consistency},
-  author  = {...},
+  author  = {Zhou, Zijun and Yan, Shaocheng and Zhao, Zhenjun and Hu, Yutong and Yang, Ke and Gu, Yingdong and Shi, Pengcheng and Li, Jiayuan},
   journal = {arXiv preprint arXiv:XXXX.XXXXX},
   year    = {2026}
 }
