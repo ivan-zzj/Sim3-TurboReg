@@ -1,0 +1,241 @@
+diff --git a/da3_streaming/configs/base_config.yaml b/da3_streaming/configs/base_config.yaml
+index 62e2ad0..e067b9f 100644
+--- a/da3_streaming/configs/base_config.yaml
++++ b/da3_streaming/configs/base_config.yaml
+@@ -1,7 +1,7 @@
+ Weights:
+-  DA3: './weights/model.safetensors'
+-  DA3_CONFIG: './weights/config.json'
+-  SALAD: './weights/dino_salad.ckpt'
++  DA3: '/path/to/weights/da3/model.safetensors'
++  DA3_CONFIG: '/path/to/weights/da3/config.json'
++  SALAD: '/path/to/weights/dino_salad.ckpt'
+ 
+ Model:
+   chunk_size: 120
+diff --git a/da3_streaming/configs/kitti.yaml b/da3_streaming/configs/kitti.yaml
+index bf6e94c..3050558 100644
+--- a/da3_streaming/configs/kitti.yaml
++++ b/da3_streaming/configs/kitti.yaml
+@@ -1,7 +1,7 @@
+ Weights:
+-  DA3: './weights/model.safetensors'
+-  DA3_CONFIG: './weights/config.json'
+-  SALAD: './weights/dino_salad.ckpt'
++  DA3: '/path/to/weights/da3/model.safetensors'
++  DA3_CONFIG: '/path/to/weights/da3/config.json'
++  SALAD: '/path/to/weights/dino_salad.ckpt'
+ 
+ Model:
+   chunk_size: 120
+diff --git a/da3_streaming/configs/tum.yaml b/da3_streaming/configs/tum.yaml
+index 62e2ad0..e067b9f 100644
+--- a/da3_streaming/configs/tum.yaml
++++ b/da3_streaming/configs/tum.yaml
+@@ -1,7 +1,7 @@
+ Weights:
+-  DA3: './weights/model.safetensors'
+-  DA3_CONFIG: './weights/config.json'
+-  SALAD: './weights/dino_salad.ckpt'
++  DA3: '/path/to/weights/da3/model.safetensors'
++  DA3_CONFIG: '/path/to/weights/da3/config.json'
++  SALAD: '/path/to/weights/dino_salad.ckpt'
+ 
+ Model:
+   chunk_size: 120
+diff --git a/da3_streaming/da3_streaming.py b/da3_streaming/da3_streaming.py
+index e1db016..53da40e 100644
+--- a/da3_streaming/da3_streaming.py
++++ b/da3_streaming/da3_streaming.py
+@@ -21,6 +21,7 @@ import json
+ import os
+ import shutil
+ import sys
++import time as _time
+ from datetime import datetime
+ import matplotlib
+ import matplotlib.pyplot as plt
+@@ -188,7 +189,8 @@ class DA3_Streaming:
+ 
+         self.loop_predict_list = []
+ 
+-        self.loop_enable = self.config["Model"]["loop_enable"]
++        self.alignment_only = bool(self.config["Model"].get("alignment_only", False))
++        self.loop_enable = self.config["Model"]["loop_enable"] and not self.alignment_only
+ 
+         if self.loop_enable:
+             loop_info_save_path = os.path.join(save_dir, "loop_closures.txt")
+@@ -534,18 +536,24 @@ class DA3_Streaming:
+                 chunks of size {self.chunk_size} with {self.overlap} overlap"
+         )
+ 
++        self._t_inference = 0.0
++        self._t_chunk_align = 0.0
++
+         pre_predictions = None
+         for chunk_idx in range(len(self.chunk_indices)):
+             print(f"[Progress]: {chunk_idx}/{len(self.chunk_indices)}")
++            _t0 = _time.time()
+             cur_predictions = self.process_single_chunk(
+                 self.chunk_indices[chunk_idx], chunk_idx=chunk_idx
+             )
+             torch.cuda.empty_cache()
++            self._t_inference += _time.time() - _t0
+ 
+             if chunk_idx > 0:
+                 print(
+                     f"Aligning {chunk_idx-1} and {chunk_idx} (Total {len(self.chunk_indices)-1})"
+                 )
++                _t1 = _time.time()
+                 chunk_data1 = pre_predictions
+                 chunk_data2 = cur_predictions
+ 
+@@ -583,10 +591,34 @@ class DA3_Streaming:
+                     chunk2_depth_conf,
+                 )
+                 self.sim3_list.append((s, R, t))
++                self._t_chunk_align += _time.time() - _t1
+ 
+             pre_predictions = cur_predictions
+ 
++        if self.alignment_only:
++            self._t_loop = 0.0
++            self._t_postprocess = 0.0
++            timing = {
++                'inference_time': self._t_inference,
++                'alignment_time': self._t_chunk_align,
++                'loop_time': self._t_loop,
++                'postprocess_time': self._t_postprocess,
++                'total_time': self._t_inference + self._t_chunk_align,
++                'num_images': len(self.img_list),
++                'num_chunks': len(self.chunk_indices),
++                'alignment_only': True,
++            }
++            with open(os.path.join(self.output_dir, 'timing.json'), 'w') as f:
++                json.dump(timing, f, indent=2)
++            print(f'[Timing] Inference: {self._t_inference:.2f}s  '
++                  f'Chunk-Align(IRLS): {self._t_chunk_align:.2f}s  '
++                  f'Alignment-only total: {timing["total_time"]:.2f}s')
++            print("Done alignment-only.")
++            return
++
++        self._t_loop = 0.0
+         if self.loop_enable:
++            _t_loop_start = _time.time()
+             self.loop_list = self.get_loop_pairs()
+             del self.loop_detector  # Save GPU Memory
+ 
+@@ -622,6 +654,9 @@ class DA3_Streaming:
+             self.plot_loop_closure(
+                 input_abs_poses, optimized_abs_poses, save_name="sim3_opt_result.png"
+             )
++            self._t_loop = _time.time() - _t_loop_start
++
++        self._t_postprocess_start = _time.time()
+ 
+         print("Apply alignment")
+         self.sim3_list = accumulate_sim3_transforms(self.sim3_list)
+@@ -696,6 +731,25 @@ class DA3_Streaming:
+ 
+         self.save_camera_poses()
+ 
++        self._t_postprocess = _time.time() - self._t_postprocess_start
++        print(f'[Timing] Inference: {self._t_inference:.2f}s  '
++              f'Chunk-Align(IRLS): {self._t_chunk_align:.2f}s  '
++              f'Loop: {self._t_loop:.2f}s  '
++              f'Postprocess: {self._t_postprocess:.2f}s')
++
++        # Save timing.json
++        timing = {
++            'inference_time': self._t_inference,
++            'alignment_time': self._t_chunk_align,
++            'loop_time': self._t_loop,
++            'postprocess_time': self._t_postprocess,
++            'total_time': self._t_inference + self._t_chunk_align + self._t_loop + self._t_postprocess,
++            'num_images': len(self.img_list),
++            'num_chunks': len(self.chunk_indices),
++        }
++        with open(os.path.join(self.output_dir, 'timing.json'), 'w') as f:
++            json.dump(timing, f, indent=2)
++
+         print("Done.")
+ 
+     def run(self):
+@@ -782,6 +836,14 @@ class DA3_Streaming:
+ 
+         print(f"Camera poses saved to {poses_path}")
+ 
++        # Save image timestamps (extracted from filenames) for TUM-style evaluation
++        timestamps_path = os.path.join(self.output_dir, "timestamps.txt")
++        with open(timestamps_path, "w") as f:
++            for img_path in self.img_list:
++                fname = os.path.splitext(os.path.basename(img_path))[0]
++                f.write(fname + "\n")
++        print(f"Timestamps saved to {timestamps_path}")
++
+         intrinsics_path = os.path.join(self.output_dir, "intrinsic.txt")
+         with open(intrinsics_path, "w") as f:
+             for intrinsic in all_intrinsics:
+@@ -889,9 +951,19 @@ if __name__ == "__main__":
+         help="Image path",
+     )
+     parser.add_argument("--output_dir", type=str, required=False, default=None, help="Output path")
++    parser.add_argument(
++        "--alignment_only",
++        action="store_true",
++        help="Stop after adjacent chunk alignment and save timing.json.",
++    )
+     args = parser.parse_args()
+ 
++    np.random.seed(0)
++    torch.manual_seed(0)
++
+     config = load_config(args.config)
++    if args.alignment_only:
++        config.setdefault("Model", {})["alignment_only"] = True
+ 
+     image_dir = args.image_dir
+     path = image_dir.split("/")
+@@ -900,7 +972,7 @@ if __name__ == "__main__":
+         save_dir = args.output_dir
+     else:
+         current_datetime = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+-        exp_dir = "./exps"
++        exp_dir = "/path/to/exps"
+         save_dir = os.path.join(exp_dir, image_dir.replace("/", "_"), current_datetime)
+ 
+     if not os.path.exists(save_dir):
+@@ -919,6 +991,10 @@ if __name__ == "__main__":
+     torch.cuda.empty_cache()
+     gc.collect()
+ 
++    if args.alignment_only:
++        print("DA3-Streaming alignment-only done.")
++        sys.exit()
++
+     all_ply_path = os.path.join(save_dir, "pcd/combined_pcd.ply")
+     input_dir = os.path.join(save_dir, "pcd")
+     print("Saving all the point clouds")
+diff --git a/da3_streaming/scripts/download_weights.sh b/da3_streaming/scripts/download_weights.sh
+index 36ef6bf..d910c0e 100644
+--- a/da3_streaming/scripts/download_weights.sh
++++ b/da3_streaming/scripts/download_weights.sh
+@@ -1,12 +1,12 @@
+ #!/bin/bash
+ 
+-mkdir weights
+-cd ./weights
+ 
+-# SALAD (~ 340 MiB)
+-echo "Downloading SALAD weights (~ 340 MiB) ..."
+-SALAD_URL="https://github.com/serizba/salad/releases/download/v1.0.0/dino_salad.ckpt"
+-curl -L "$SALAD_URL" -o "./dino_salad.ckpt"
++cd /path/to/weights
++
++# # SALAD (~ 340 MiB)
++# echo "Downloading SALAD weights (~ 340 MiB) ..."
++# SALAD_URL="https://github.com/serizba/salad/releases/download/v1.0.0/dino_salad.ckpt"
++# curl -L "$SALAD_URL" -o "./dino_salad.ckpt"
+ 
+ 
+ # DA3NESTED-GIANT-LARGE-1.1

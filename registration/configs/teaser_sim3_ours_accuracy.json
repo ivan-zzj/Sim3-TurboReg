@@ -1,0 +1,19 @@
+{
+  "max_points": 100,
+  "epsilon_scale": 0.05,
+  "num_pivots": 8,
+  "nms_radius": 0.3,
+  "inlier_threshold": 0.12,
+  "metric": "MSE",
+  "k_neighbors": 5,
+  "graph_iterations": 1,
+  "refinement_iterations": 3,
+  "min_pair_distance": 0.001,
+  "scale_min": 0.1,
+  "scale_max": 10.0,
+  "log_scale_bin_width": 0.1,
+  "local_scale_mode": "hist",
+  "use_tsc": true,
+  "use_second_order": true,
+  "reject_degenerate": false
+}

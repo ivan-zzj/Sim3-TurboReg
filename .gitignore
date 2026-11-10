@@ -1,0 +1,19 @@
+# Build artifacts
+build/
+*.o
+*.so
+*.so.*
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+
+# Experiment outputs
+results/
+exps/
+eval_results/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store

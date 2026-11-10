@@ -1,0 +1,52 @@
+[
+  {
+    "id": "teaser_cpu",
+    "method": "TEASER++",
+    "device": "cpu",
+    "options": {
+      "max_points": 100,
+      "epsilon_scale": 0.1,
+      "num_pivots": 32,
+      "nms_radius": 0.15,
+      "inlier_threshold": 0.08,
+      "metric": "MAE",
+      "k_neighbors": 10,
+      "graph_iterations": 1,
+      "refinement_iterations": 3,
+      "min_pair_distance": 0.001,
+      "scale_min": 0.1,
+      "scale_max": 10.0,
+      "log_scale_bin_width": 0.1,
+      "local_scale_mode": "hist",
+      "use_tsc": true,
+      "use_second_order": false,
+      "reject_degenerate": false,
+      "uniform_refinement": true
+    }
+  },
+  {
+    "id": "ours_native_cpu",
+    "method": "Ours",
+    "device": "cpu",
+    "options": {
+      "max_points": 100,
+      "epsilon_scale": 0.1,
+      "num_pivots": 32,
+      "nms_radius": 0.15,
+      "inlier_threshold": 0.08,
+      "metric": "MAE",
+      "k_neighbors": 10,
+      "graph_iterations": 1,
+      "refinement_iterations": 3,
+      "min_pair_distance": 0.001,
+      "scale_min": 0.1,
+      "scale_max": 10.0,
+      "log_scale_bin_width": 0.1,
+      "local_scale_mode": "hist",
+      "use_tsc": true,
+      "use_second_order": false,
+      "reject_degenerate": false,
+      "uniform_refinement": true
+    }
+  }
+]

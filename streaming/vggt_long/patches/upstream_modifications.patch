@@ -1,0 +1,128 @@
+diff --git a/configs/base_config.yaml b/configs/base_config.yaml
+index 6aab872..c5401c8 100644
+--- a/configs/base_config.yaml
++++ b/configs/base_config.yaml
+@@ -1,11 +1,11 @@
+ Weights:
+   model: 'VGGT' # choose between 'VGGT' or 'Pi3' or 'Mapanything'
+-  VGGT: './weights/model.pt'
+-  Pi3: './weights/Pi3/model.safetensors'
+-  Map:  './weights/map_anything'
+-  DBoW: './weights/ORBvoc.txt'
+-  SALAD: './weights/dino_salad.ckpt'
+-  DNIO: './weights/dinov2_vitb14_pretrain.pth'
++  VGGT: '/path/to/weights/model.pt'
++  Pi3: '/path/to/weights/pi3/model.safetensors'
++  Map:  '/path/to/weights/map_anything'
++  DBoW: '/path/to/weights/ORBvoc.txt'
++  SALAD: '/path/to/weights/dino_salad.ckpt'
++  DNIO: '/path/to/weights/dinov2_vitb14_pretrain.pth'
+ 
+ Model:
+   chunk_size: 60
+diff --git a/vggt_long.py b/vggt_long.py
+index 52fbca5..beb917c 100644
+--- a/vggt_long.py
++++ b/vggt_long.py
+@@ -219,7 +219,8 @@ class VGGT_Long:
+             self.all_camera_poses.append((chunk_range, extrinsics))
+             self.all_camera_intrinsics.append((chunk_range, intrinsics))
+ 
+-        predictions['depth'] = np.squeeze(predictions['depth'])
++        if predictions['depth'] is not None:
++            predictions['depth'] = np.squeeze(predictions['depth'])
+ 
+         np.save(save_path, predictions)
+         
+@@ -240,6 +241,9 @@ class VGGT_Long:
+                 end_idx = min(start_idx + self.chunk_size, len(self.img_list))
+                 self.chunk_indices.append((start_idx, end_idx))
+ 
++        import time as _time
++        self._t_inference_start = _time.time()
++
+         for chunk_idx in range(len(self.chunk_indices)):
+             print(f'[Progress]: {chunk_idx}/{len(self.chunk_indices)-1}')
+             self.process_single_chunk(self.chunk_indices[chunk_idx], chunk_idx=chunk_idx)
+@@ -265,6 +269,9 @@ class VGGT_Long:
+         del self.model # Save GPU Memory
+         torch.cuda.empty_cache()
+ 
++        self._t_inference = _time.time() - self._t_inference_start
++        self._t_align_start = _time.time()
++
+         print("Aligning all the chunks...")
+         for chunk_idx in range(len(self.chunk_indices)-1):
+ 
+@@ -469,7 +476,21 @@ class VGGT_Long:
+             )
+ 
+         self.save_camera_poses()
+-        
++
++        self._t_align = _time.time() - self._t_align_start
++        print(f'[Timing] Inference: {self._t_inference:.2f}s  Alignment: {self._t_align:.2f}s')
++
++        # Save timing.json
++        timing = {
++            'inference_time': self._t_inference,
++            'alignment_time': self._t_align,
++            'num_images': len(self.img_list),
++            'num_chunks': len(self.chunk_indices),
++        }
++        import json
++        with open(os.path.join(self.output_dir, 'timing.json'), 'w') as f:
++            json.dump(timing, f, indent=2)
++
+         print('Done.')
+ 
+     def run(self):
+@@ -558,6 +579,15 @@ class VGGT_Long:
+                 f.write(' '.join([str(x) for x in flat_pose]) + '\n')
+ 
+         print(f"Camera poses saved to {poses_path}")
++
++        # Save image timestamps (extracted from filenames) for TUM-style evaluation
++        timestamps_path = os.path.join(self.output_dir, "timestamps.txt")
++        with open(timestamps_path, "w") as f:
++            for img_path in self.img_list:
++                fname = os.path.splitext(os.path.basename(img_path))[0]
++                f.write(fname + "\n")
++        print(f"Timestamps saved to {timestamps_path}")
++
+         if all_intrinsics[0] is not None:
+             intrinsics_path = os.path.join(self.output_dir, 'intrinsic.txt')
+             with open(intrinsics_path, 'w') as f:
+@@ -660,12 +690,15 @@ if __name__ == '__main__':
+                         help='config path')
+     args = parser.parse_args()
+ 
++    np.random.seed(0)
++    torch.manual_seed(0)
++
+     config = load_config(args.config)
+ 
+     image_dir = args.image_dir
+     path = image_dir.split("/")
+     current_datetime = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+-    exp_dir = './exps'
++    exp_dir = '/path/to/exps'
+ 
+     save_dir = os.path.join(
+             exp_dir, image_dir.replace("/", "_"), current_datetime
+@@ -683,10 +716,15 @@ if __name__ == '__main__':
+     if config['Model']['align_method'] == 'numba':
+         warmup_numba()
+ 
++    import time as _time
++    _t_total_start = _time.time()
++
+     vggt_long = VGGT_Long(image_dir, save_dir, config)
+     vggt_long.run()
+     vggt_long.close()
+ 
++    _t_total = _time.time() - _t_total_start
++
+     del vggt_long
+     torch.cuda.empty_cache()
+     gc.collect()

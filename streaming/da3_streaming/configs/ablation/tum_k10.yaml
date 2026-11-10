@@ -1,0 +1,64 @@
+Weights:
+  DA3: /path/to/weights/da3/model.safetensors
+  DA3_CONFIG: /path/to/weights/da3/config.json
+  SALAD: /path/to/weights/dino_salad.ckpt
+Model:
+  chunk_size: 120
+  overlap: 60
+  loop_chunk_size: 20
+  loop_enable: true
+  useDBoW: false
+  delete_temp_files: true
+  align_lib: turboreg
+  align_method: sim3
+  scale_compute_method: auto
+  align_type: dense
+  ref_view_strategy: saddle_balanced
+  ref_view_strategy_loop: saddle_balanced
+  depth_threshold: 15.0
+  save_depth_conf_result: true
+  save_debug_info: false
+  Sparse_Align:
+    keypoint_select: orb
+    keypoint_num: 5000
+  IRLS:
+    delta: 0.1
+    max_iters: 5
+    tol: 1e-9
+  Pointcloud_Save:
+    sample_ratio: 0.015
+    conf_threshold_coef: 0.75
+TurboReg:
+  max_N: 7000
+  epsilon_scale: 0.2
+  num_pivot: 2000
+  radiu_nms: 0.15
+  tau_inlier: 0.01
+  metric_str: IN
+  k_neighbors: 10
+  num_iterations: 2
+  graph_k: 80
+  trim_ratio: 0.1
+  min_pair_dist: 0.004
+  local_scale_min: 0.5
+  local_scale_max: 2.0
+  local_scale_diff: -1.0
+  local_scale_mode: union_median
+  fallback_max_rot_deg: 30.0
+  fallback_max_logscale: 0.3
+  use_distance_diff_consistency: false
+  distance_diff_thresh: 0.03
+Loop:
+  SALAD:
+    image_size:
+    - 336
+    - 336
+    batch_size: 32
+    similarity_threshold: 0.85
+    top_k: 5
+    use_nms: true
+    nms_threshold: 25
+  SIM3_Optimizer:
+    lang_version: cpp
+    max_iterations: 30
+    lambda_init: 1e-6

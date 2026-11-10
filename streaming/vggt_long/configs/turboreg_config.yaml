@@ -1,0 +1,83 @@
+Weights:
+  model: 'VGGT' # choose between 'VGGT' or 'Pi3' or 'Mapanything'
+  VGGT: '/path/to/weights/model.pt'
+  Pi3: '/path/to/weights/pi3/model.safetensors'
+  Map:  '/path/to/weights/map_anything'
+  DBoW: '/path/to/weights/ORBvoc.txt'
+  SALAD: '/path/to/weights/dino_salad.ckpt'
+  DNIO: '/path/to/weights/dinov2_vitb14_pretrain.pth'
+
+Model:
+  chunk_size: 60
+  overlap: 30
+  loop_chunk_size: 20
+  loop_enable: True
+  useDBoW: False
+  delete_temp_files: True
+  align_method: 'turboreg'  # Using TurboReg+Umeyama instead of IRLS
+  using_sim3: True
+  reference_frame_mid: False
+
+  calib: False
+  h: 376
+  w: 1241
+
+  # IRLS config kept for reference (not used in TurboReg mode)
+  IRLS:
+    delta: 0.1
+    max_iters: 5
+    tol: 1e-9
+
+  Pointcloud_Save:
+    sample_ratio: 0.015
+    conf_threshold_coef: 0.75
+    use_confidence_filtering: true
+
+# TurboReg (ScaleTurboRegGPU) parameters
+TurboReg:
+  max_N: 7000              # Max correspondences fed to TurboReg
+  epsilon_scale: 0.15       # Log-scale consistency threshold
+  num_pivot: 2000          # Pivot points for clique search
+  radiu_nms: 0.15          # NMS radius
+  tau_inlier: 0.008          # Inlier distance threshold
+  metric_str: 'IN'         # Model selection metric: IN|MAE|MSE
+  k_neighbors: 5          # KNN for local scale estimation
+  num_iterations: 2        # LGSC refinement iterations
+  graph_k: 80              # KNN for graph edges
+  trim_ratio: 0.1          # Trim ratio for local scale
+  min_pair_dist: 0.004     # Min pair distance for local scale
+  local_scale_min: 0.5     # Min allowed local scale
+  local_scale_max: 2.0    # Max allowed local scale
+  local_scale_diff: -1.0   # Max |log(s_i)-log(s_j)|, <0 uses epsilon_scale
+  local_scale_mode: 'union_median' # Local scale mode: hist|median|union_median
+  # Degenerate-edge fallback to weighted Umeyama when Sim(3) estimate is implausible
+  fallback_max_rot_deg: 30.0
+  fallback_max_logscale: 0.3
+
+# TEASER++ parameters (for eval_alignment_only.py comparison)
+TEASER:
+  max_N: 7000               # Max correspondences
+  noise_bound: 0.05          # Inlier noise bound
+  cbar2: 1.0                 # Ratio between acceptable noise and noise bound
+  rotation_gnc_factor: 1.4   # GNC control parameter
+  rotation_max_iterations: 100
+  rotation_cost_threshold: 1e-6
+
+Loop:
+  DBoW:
+    thresh: 0.034
+    num_repeat: 3
+    NMS: 25
+
+  SALAD:
+    image_size: [336, 336]
+    batch_size: 32
+    similarity_threshold: 0.85
+    top_k: 5
+    use_nms: True
+    nms_threshold: 25
+
+  SIM3_Optimizer:
+    lang_version: 'cpp'
+    max_iterations: 30
+    lambda_init: 1e-6
