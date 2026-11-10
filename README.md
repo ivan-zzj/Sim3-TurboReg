@@ -103,8 +103,8 @@ See [`streaming/`](streaming/README.md). This part contains our integration code
 
 Zijun Zhou, Shaocheng Yan, Zhenjun Zhao, Yutong Hu, Ke Yang, Yingdong Gu, Pengcheng Shi, Jiayuan Li
 
-- School of Remote Sensing and Information Engineering, Wuhan University (all authors except Zhenjun Zhao)
-- Department of Computer and Systems Engineering, University of Zaragoza (Zhenjun Zhao)
+- Wuhan University, China (all authors except Zhenjun Zhao)
+- University of Zaragoza, Spain (Zhenjun Zhao)
 
 ## License
 
